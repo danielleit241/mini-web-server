@@ -6,29 +6,45 @@ namespace MiniWebServer.Server
     {
         public string StatusCode { get; set; }
         public Dictionary<string, string> Headers { get; set; } = new Dictionary<string, string>();
-        public string Body { get; set; } = string.Empty;
+        public byte[] Body { get; private set; } = [];
 
         public HttpResponse(string statusCode = "200 OK")
         {
             StatusCode = statusCode;
         }
 
-        public override string ToString()
+        public void SetContent(string content, string contentType = "text/html; charset=UTF-8")
         {
-            StringBuilder responseBuilder = new StringBuilder();
+            Body = Encoding.UTF8.GetBytes(content);
+            Headers["Content-Type"] = contentType;
+            Headers["Content-Length"] = Body.Length.ToString();
+        }
 
-            responseBuilder.AppendLine($"HTTP/1.1 {StatusCode}");
+        public void SetContent(byte[] content, string contentType)
+        {
+            Body = content;
+            Headers["Content-Type"] = contentType;
+            Headers["Content-Length"] = Body.Length.ToString();
+        }
+
+        public byte[] ToBytes()
+        {
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.AppendLine($"HTTP/1.1 {StatusCode}");
 
             foreach (var header in Headers)
             {
-                responseBuilder.AppendLine($"{header.Key}: {header.Value}");
+                stringBuilder.Append($"{header.Key}: {header.Value}\r\n");
             }
 
-            responseBuilder.Append("\r\n");
+            stringBuilder.Append("\r\n");
 
-            responseBuilder.Append(Body);
+            byte[] headerBytes = Encoding.UTF8.GetBytes(stringBuilder.ToString());
+            byte[] responseBytes = new byte[headerBytes.Length + Body.Length];
+            Array.Copy(headerBytes, 0, responseBytes, 0, headerBytes.Length);
+            Array.Copy(Body, 0, responseBytes, headerBytes.Length, Body.Length);
 
-            return responseBuilder.ToString();
+            return responseBytes;
         }
     }
 }

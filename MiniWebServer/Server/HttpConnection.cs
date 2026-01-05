@@ -32,36 +32,32 @@ namespace MiniWebServer.Server
                         HttpRequest request = RequestParser.Parse(rawRequest);
 
                         var response = new HttpResponse("200 OK");
-                        response.Headers.Add("Content-Type", "text/html; charset=UTF-8");
+                        string wwwroot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
 
                         if (request.Url == "/")
                         {
-                            response.Body = "<h1>Welcome to MiniWebServer!</h1><p>This is the home page.</p>";
-                            response.Headers["Content-Type"] = "text/html; charset=UTF-8";
-                        }
-                        else if (request.Url == "/json")
-                        {
-                            response.Body = "{ \"message\": \"Hello JSON\", \"status\": \"success\" }";
-                            response.Headers["Content-Type"] = "application/json";
-                        }
-                        else if (request.Url.StartsWith("/hello"))
-                        {
-                            response.Body = $"<h1>Hello User!</h1><p>Your User-Agent is: {GetValue(request, "User-Agent")}</p>";
-                            response.Headers["Content-Type"] = "text/html; charset=UTF-8";
+                            response.SetContent("<h1>Home Page</h1>", "text/html; charset=UTF-8");
                         }
                         else
                         {
-                            response.StatusCode = "404 Not Found";
-                            response.Body = "<h1>404 - Page Not Found</h1>";
-                            response.Headers["Content-Type"] = "text/html; charset=UTF-8";
+                            string filePath = Path.Combine(wwwroot, request.Url.TrimStart('/'));
+
+                            if (File.Exists(filePath))
+                            {
+                                byte[] fileBytes = File.ReadAllBytes(filePath);
+                                string contentType = GetContentType(filePath);
+                                response.SetContent(fileBytes, contentType);
+                            }
+                            else
+                            {
+                                response.StatusCode = "404 Not Found";
+                                response.SetContent("<h1>404 File Not Found</h1>");
+                            }
                         }
 
-                        int bodyLength = Encoding.UTF8.GetByteCount(response.Body);
-                        response.Headers["Content-Length"] = bodyLength.ToString();
                         response.Headers["Connection"] = "close";
 
-                        string responseString = response.ToString();
-                        byte[] responseBytes = Encoding.UTF8.GetBytes(responseString);
+                        byte[] responseBytes = response.ToBytes();
                         await networkStream.WriteAsync(responseBytes, 0, responseBytes.Length);
                     }
                 }
@@ -86,6 +82,21 @@ namespace MiniWebServer.Server
                 }
             }
             return "Unknown";
+        }
+
+        private string GetContentType(string filePath)
+        {
+            string extension = Path.GetExtension(filePath).ToLower();
+            return extension switch
+            {
+                ".html" => "text/html; charset=UTF-8",
+                ".css" => "text/css",
+                ".js" => "application/javascript",
+                ".png" => "image/png",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".gif" => "image/gif",
+                _ => "application/octet-stream",
+            };
         }
     }
 }
