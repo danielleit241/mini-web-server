@@ -29,39 +29,39 @@ namespace MiniWebServer.Server
                     if (bytesRead > 0)
                     {
                         string rawRequest = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                        //Console.WriteLine($"[{_connectionId}] Raw Request:\n{rawRequest}");
                         HttpRequest request = RequestParser.Parse(rawRequest);
-                        Console.WriteLine($"[{_connectionId}] Request: {request.Method} {request.Url}");
 
-                        string content = "";
-                        string statusCode = "200 OK";
+                        var response = new HttpResponse("200 OK");
+                        response.Headers.Add("Content-Type", "text/html; charset=UTF-8");
 
                         if (request.Url == "/")
                         {
-                            content = "<h1>Home Page</h1><p>Welcome to my Mini Server</p>";
+                            response.Body = "<h1>Welcome to MiniWebServer!</h1><p>This is the home page.</p>";
+                            response.Headers["Content-Type"] = "text/html; charset=UTF-8";
                         }
                         else if (request.Url == "/json")
                         {
-                            content = "{ \"message\": \"Hello JSON\", \"status\": \"success\" }";
+                            response.Body = "{ \"message\": \"Hello JSON\", \"status\": \"success\" }";
+                            response.Headers["Content-Type"] = "application/json";
                         }
                         else if (request.Url.StartsWith("/hello"))
                         {
-                            content = $"<h1>Hello User!</h1><p>Your User-Agent is: {GetValue(request, "User-Agent")}</p>";
+                            response.Body = $"<h1>Hello User!</h1><p>Your User-Agent is: {GetValue(request, "User-Agent")}</p>";
+                            response.Headers["Content-Type"] = "text/html; charset=UTF-8";
                         }
                         else
                         {
-                            statusCode = "404 Not Found";
-                            content = "<h1>404 - Page Not Found</h1>";
+                            response.StatusCode = "404 Not Found";
+                            response.Body = "<h1>404 - Page Not Found</h1>";
+                            response.Headers["Content-Type"] = "text/html; charset=UTF-8";
                         }
 
-                        string response = $"HTTP/1.1 {statusCode}\r\n" +
-                                          "Content-Type: " + (request.Url == "/json" ? "application/json" : "text/html") + "\r\n" +
-                                          "Content-Length: " + Encoding.UTF8.GetByteCount(content) + "\r\n" +
-                                          "Connection: close\r\n" +
-                                          "\r\n" +
-                                          content;
+                        int bodyLength = Encoding.UTF8.GetByteCount(response.Body);
+                        response.Headers["Content-Length"] = bodyLength.ToString();
+                        response.Headers["Connection"] = "close";
 
-                        byte[] responseBytes = Encoding.UTF8.GetBytes(response);
+                        string responseString = response.ToString();
+                        byte[] responseBytes = Encoding.UTF8.GetBytes(responseString);
                         await networkStream.WriteAsync(responseBytes, 0, responseBytes.Length);
                     }
                 }
@@ -78,7 +78,14 @@ namespace MiniWebServer.Server
 
         private string GetValue(HttpRequest req, string key)
         {
-            return req.Headers.ContainsKey(key) ? req.Headers[key] : "Unknown";
+            foreach (var header in req.Headers)
+            {
+                if (string.Equals(header.Key, key, StringComparison.OrdinalIgnoreCase))
+                {
+                    return header.Value;
+                }
+            }
+            return "Unknown";
         }
     }
 }
