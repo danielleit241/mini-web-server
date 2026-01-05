@@ -24,7 +24,10 @@ namespace MiniWebServer.Server
             {
                 while (!_tokenSource.Token.IsCancellationRequested)
                 {
+                    // Chờ kết nối từ client
                     var tcpClient = await _tcpListener.AcceptTcpClientAsync();
+
+                    // Xử lý kết nối trong một task riêng
                     _ = HandleClientAsync(tcpClient);
                 }
 

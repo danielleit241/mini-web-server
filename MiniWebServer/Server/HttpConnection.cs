@@ -22,27 +22,47 @@ namespace MiniWebServer.Server
                 using (_tcpClient)
                 using (var networkStream = _tcpClient.GetStream())
                 {
-                    byte[] buffer = new byte[1024];
+                    byte[] buffer = new byte[4096];
 
                     int bytesRead = await networkStream.ReadAsync(buffer, 0, buffer.Length);
 
                     if (bytesRead > 0)
                     {
-                        string requestData = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                        Console.WriteLine($"[Connection {_connectionId}] Received data:\n{requestData}");
+                        string rawRequest = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                        //Console.WriteLine($"[{_connectionId}] Raw Request:\n{rawRequest}");
+                        HttpRequest request = RequestParser.Parse(rawRequest);
+                        Console.WriteLine($"[{_connectionId}] Request: {request.Method} {request.Url}");
 
-                        string html = "<html><body><h1>Hello from MiniWebServer!</h1></body></html>";
-                        var sb = new StringBuilder();
-                        sb.Append("HTTP/1.1 200 OK\r\n");
-                        sb.Append("Content-Type: text/html\r\n");
-                        sb.Append($"Content-Length: {Encoding.UTF8.GetByteCount(html)}\r\n");
-                        sb.Append("Connection: close\r\n");
-                        sb.Append("\r\n");
-                        sb.Append(html);
+                        string content = "";
+                        string statusCode = "200 OK";
 
-                        byte[] responseBytes = Encoding.UTF8.GetBytes(sb.ToString());
+                        if (request.Url == "/")
+                        {
+                            content = "<h1>Home Page</h1><p>Welcome to my Mini Server</p>";
+                        }
+                        else if (request.Url == "/json")
+                        {
+                            content = "{ \"message\": \"Hello JSON\", \"status\": \"success\" }";
+                        }
+                        else if (request.Url.StartsWith("/hello"))
+                        {
+                            content = $"<h1>Hello User!</h1><p>Your User-Agent is: {GetValue(request, "User-Agent")}</p>";
+                        }
+                        else
+                        {
+                            statusCode = "404 Not Found";
+                            content = "<h1>404 - Page Not Found</h1>";
+                        }
+
+                        string response = $"HTTP/1.1 {statusCode}\r\n" +
+                                          "Content-Type: " + (request.Url == "/json" ? "application/json" : "text/html") + "\r\n" +
+                                          "Content-Length: " + Encoding.UTF8.GetByteCount(content) + "\r\n" +
+                                          "Connection: close\r\n" +
+                                          "\r\n" +
+                                          content;
+
+                        byte[] responseBytes = Encoding.UTF8.GetBytes(response);
                         await networkStream.WriteAsync(responseBytes, 0, responseBytes.Length);
-                        Console.WriteLine($"[Connection {_connectionId}] Sent response.");
                     }
                 }
             }
@@ -54,6 +74,11 @@ namespace MiniWebServer.Server
             {
                 Console.WriteLine($"[{_connectionId}] Disconnected.");
             }
+        }
+
+        private string GetValue(HttpRequest req, string key)
+        {
+            return req.Headers.ContainsKey(key) ? req.Headers[key] : "Unknown";
         }
     }
 }
