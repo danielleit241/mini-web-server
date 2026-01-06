@@ -7,7 +7,7 @@ namespace MiniWebServer.Server.Implements
 
         public HttpResponse HandleRequest(HttpRequest request)
         {
-            HttpResponse response = new HttpResponse();
+            HttpResponse response = new();
             if (request.Url == "/json")
             {
                 response.SetContent("{\"message\": \"Hello, World!\"}", "application/json; charset=UTF-8");

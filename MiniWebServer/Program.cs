@@ -1,20 +1,16 @@
 ﻿using MiniWebServer.Server;
+using System.Security.Cryptography.X509Certificates;
 
 class Program
 {
     static async Task Main(string[] args)
     {
-        var server = new HttpServer("127.0.0.1", 8080);
+        Console.WriteLine("Starting MiniWebServer...");
 
-        var serverTask = server.StartAsync();
+        var certificate = new X509Certificate2("server.pfx", "123456", X509KeyStorageFlags.Exportable);
 
-        Console.WriteLine("Press Enter to stop the server...");
-        Console.ReadLine();
+        var server = new HttpServer("127.0.0.1", 8080, certificate);
 
-        Console.WriteLine("Stopping server...");
-        server.Stop();
-
-        await serverTask;
-        Console.WriteLine("Server stopped.");
+        await server.StartAsync();
     }
 }
